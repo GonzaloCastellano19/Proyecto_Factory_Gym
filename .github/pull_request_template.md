@@ -1,14 +1,14 @@
-## What does this PR do?
+## ¿Qué hace este PR?
 
-<!-- Short description of the change. -->
+<!-- Descripción breve del cambio. -->
 
-## Related issue / Trello card
+## Incidencia / tarjeta de Trello relacionada
 
-<!-- Closes #... -->
+<!-- Cierra #... -->
 
-## Checklist
+## Lista de comprobación
 
-- [ ] The code builds and runs
-- [ ] Tests added or updated and passing
-- [ ] Documentation updated if needed
-- [ ] Reviewed by the other team member
+- [ ] El código compila y se ejecuta
+- [ ] Pruebas añadidas o actualizadas y en verde
+- [ ] Documentación actualizada si es necesario
+- [ ] Revisado por el otro integrante

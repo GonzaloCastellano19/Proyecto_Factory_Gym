@@ -1,19 +1,19 @@
-# Contributing
+# Guía de contribución
 
-This is a two-person academic project. We follow the GitHub flow described in the project methodology.
+Este es un proyecto académico de dos personas. Seguimos el flujo de GitHub descrito en la metodología del proyecto.
 
-## Workflow
+## Flujo de trabajo
 
-1. Pick a card from the Trello board (or an issue) and move it to **In progress** (max. two cards per person).
-2. Create a branch from `main` with a short, descriptive name: `feature/class-booking`, `fix/capacity-check`, `docs/readme`.
-3. Commit small, complete changes with clear messages (imperative, English): `Add class booking endpoint`.
-4. Open a pull request linking the related issue. The other team member reviews it.
-5. Merge into `main` once the acceptance criteria are met and the tests pass. Delete the branch.
+1. Elegir una tarjeta del tablero de Trello (o una incidencia) y pasarla a **En curso** (máximo dos tarjetas por persona).
+2. Crear una rama desde `main` con un nombre corto y descriptivo: `feature/reserva-clases`, `fix/control-aforo`, `docs/readme`.
+3. Hacer commits pequeños y completos, con mensajes claros: `Añade endpoint de reserva de clases`.
+4. Abrir un pull request enlazando la incidencia relacionada. El otro integrante lo revisa.
+5. Fusionar en `main` cuando se cumplan los criterios de aceptación y pasen las pruebas. Eliminar la rama.
 
-## Issues
+## Incidencias
 
-Use issues for bugs and change requests. Suggested labels: `bug`, `change`, `improvement`, `documentation`.
+Usamos las incidencias (Issues) para errores y peticiones de cambio. Etiquetas sugeridas: `bug`, `change`, `improvement`, `documentation`.
 
-## Definition of done
+## Definición de hecho
 
-A task is done when it meets its acceptance criteria, its code has been reviewed by the other member, the related tests pass and the documentation is updated.
+Una tarea está hecha cuando cumple sus criterios de aceptación, su código ha sido revisado por el otro integrante, las pruebas relacionadas pasan y la documentación está actualizada.
