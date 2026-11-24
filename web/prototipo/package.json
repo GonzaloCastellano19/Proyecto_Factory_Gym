@@ -1,0 +1,8 @@
+{
+  "name": "sportfactory-web-prototipo",
+  "version": "1.0.0",
+  "description": "Prototipo de la web pública de SportFactory Gym",
+  "private": true,
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=14" }
+}

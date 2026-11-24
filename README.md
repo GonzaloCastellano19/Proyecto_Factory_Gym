@@ -41,7 +41,7 @@ El proyecto se encuentra en la **fase de documentación y diseño**. Todavía no
 Proyecto_Factory_Gym/
 ├── app/    Aplicación Android (Kotlin + Jetpack Compose)
 ├── api/    API REST (Spring Boot + PostgreSQL)
-├── web/    Panel web y página pública (React + TypeScript)
+├── web/    Panel web y página pública (React + TypeScript) + prototipo navegable
 ├── docs/   Documentación del proyecto e identidad visual
 └── .github/  Plantilla de pull requests
 ```
