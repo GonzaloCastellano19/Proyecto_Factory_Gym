@@ -84,7 +84,7 @@ button{font:inherit;color:inherit}
 #menu.open a:nth-child(2){transition-delay:.08s}#menu.open a:nth-child(3){transition-delay:.16s}#menu.open a:nth-child(4){transition-delay:.24s}#menu.open a:nth-child(5){transition-delay:.32s}
 
 /* ---------- HUD ---------- */
-.hud{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;pointer-events:none;
+.hud{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;justify-content:flex-end;align-items:flex-end;gap:12px;pointer-events:none;
   padding:0 max(16px,env(safe-area-inset-right,0px)) calc(14px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .pill{background:rgba(21,28,35,.82);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:14px;padding:8px 14px;font:500 .74rem/1.25 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--chalk)}
 .pill b{color:var(--turq);font-weight:700}
@@ -423,7 +423,6 @@ form.msg .btn{justify-self:start;margin-top:8px}
   .float.f1{left:-20px}.float.f2{right:-14px}.float.f3{left:-10px}
 }
 @media (max-width:720px){
-  .hud .pill.set{padding:6px 10px}
   #ecg{width:84px}
   .intro{bottom:calc(210px + env(safe-area-inset-bottom,0px));max-width:78vw}
   .gym-tag{display:none}
@@ -470,7 +469,6 @@ form.msg .btn{justify-self:start;margin-top:8px}
 </nav>
 
 <div class="hud" aria-hidden="true">
-  <div class="pill set"><span>Sesión de hoy</span><b id="setName">Calentamiento</b></div>
   <div class="pill hr">
     <svg class="heart" id="heart" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-8-5.3-8-11a4.6 4.6 0 0 1 8-3 4.6 4.6 0 0 1 8 3c0 5.7-8 11-8 11z"/></svg>
     <canvas id="ecg" width="120" height="36"></canvas>
@@ -724,22 +722,26 @@ function sagY(x,sag){var t=(x-20)/1160;return 2*t*(1-t)*sag}
 function sagSlope(x,sag){var t=(x-20)/1160;return Math.atan2(2*(1-2*t)*sag,1160)*180/Math.PI}
 var prShown=false, hero=$('hero'), kgEl=$('kg'), factory=$('tFactory'), tSport=$('tSport');
 var pEff=0;
+var maxP=0, drawnP=-1, hintEl=$$('.hint')[0], barbellEl=$('barbell'), barPathEl=$('barPath');
 function updateHero(dt){
   var r=hero.getBoundingClientRect(), tot=r.height-H, sp=tot>0?clamp(-r.top/tot,0,1):1;
   auto+=(autoTarget-auto)*Math.min(1,dt*1.6);
-  var p=RM?1:Math.max(sp,auto); pEff=p;
+  var raw=RM?1:Math.max(sp,auto);
+  if(raw>maxP)maxP=raw;               // el peso solo sube: nunca se descarga
+  var p=maxP; pEff=p;
+  hintEl.style.opacity=(sp>.04||maxP>.3)?0:1;
+  if(p===drawnP)return;               // sin cambios: no se toca el DOM
+  drawnP=p;
   var sag=30*p;
-  $('barPath').setAttribute('d','M20 120 Q600 '+(120+sag*2)+' 1180 120');
+  barPathEl.setAttribute('d','M20 120 Q600 '+(120+sag*2)+' 1180 120');
   plateEls.forEach(function(o){var k=clamp((p-o.t)/.2,0,1),b=k>0?back(k):0,dx=(1-clamp(b,0,1))*o.side*520;
     o.g.setAttribute('opacity',k>0?1:0);o.g.setAttribute('transform','translate('+dx.toFixed(1)+' '+sagY(o.x,sag).toFixed(2)+') rotate('+sagSlope(o.x,sag)+' '+o.x+' 120)')});
   collars.forEach(function(c){var show=p>.03?1:0;c.g.setAttribute('opacity',show);c.g.setAttribute('transform','translate(0 '+sagY(c.x,sag)+') rotate('+sagSlope(c.x,sag)+' '+c.x+' 120)')});
   kgEl.textContent=Math.round(20+100*clamp(p/.9,0,1));
   factory.style.setProperty('--f',clamp(p/.9,0,1).toFixed(3));
-  $$('.hint')[0].style.opacity=sp>.04?0:1;
   var shake=p>.9&&p<.999?(Math.random()-.5)*5:0;
-  $('barbell').style.transform='translate('+shake+'px,'+(-p*8)+'px)';
+  barbellEl.style.transform='translate('+shake+'px,'+(-p*8)+'px)';
   if(p>=.97&&!prShown){prShown=true;var pr=$('pr');pr.classList.remove('on');void pr.offsetWidth;pr.classList.add('on');burst(W/2,H*.55,130,1.2);burst(W*.25,H*.7,50,.8);burst(W*.75,H*.7,50,.8)}
-  if(p<.85&&prShown){prShown=false;$('pr').classList.remove('on')}
 }
 
 /* ===== polvo de tiza ===== */
@@ -901,14 +903,10 @@ setInterval(function(){var r=stage.getBoundingClientRect();if(r.bottom<0||r.top>
 var ecg=$('ecg'), ex=ecg.getContext('2d'), E=[], phase=0, bpm=64, bpmT=64, heart=$('heart'), lastBeat=0;
 for(var i=0;i<120;i++)E.push(0);
 function wave(p){var g=function(c,w,a){return a*Math.exp(-Math.pow((p-c)/w,2))};return g(.12,.035,.16)+g(.2,.012,-.14)+g(.225,.014,1)+g(.255,.014,-.28)+g(.42,.05,.3)}
-var secs=$$('section[id],.hero-wrap'), setName=$('setName'), lastSet='';
-var SETS=[['hero','Calentamiento'],['clases','Serie 1 · Clases'],['horario','Serie 2 · Horario'],['avisos','Serie 3 · Tablón'],['app','Descanso · App'],['contacto','Vuelta a la calma']];
 function updateHud(dt){
   var doc=D.documentElement.scrollHeight-H,t=doc>0?clamp(scrollY/doc,0,1):0;
   bpmT=64+112*Math.pow(Math.sin(Math.PI*Math.min(1,t*1.04)),.75)+(t<.05?pEff*22:0);
   bpm+=(bpmT-bpm)*Math.min(1,dt*2.5);$('bpm').textContent=Math.round(bpm);
-  var name=SETS[0][1];SETS.forEach(function(s){var el=s[0]==='hero'?hero:$(s[0]);if(!el)return;var r=el.getBoundingClientRect();if(r.top<H*.55)name=s[1]});
-  if(name!==lastSet){lastSet=name;setName.textContent=name}
   phase+=dt*bpm/60;var n=Math.max(1,Math.round(dt*50));
   for(var i=0;i<n;i++){E.push(wave(phase%1));E.shift()}
   if(Math.floor(phase)!==lastBeat){lastBeat=Math.floor(phase);heart.classList.remove('beat');void heart.getBoundingClientRect();heart.classList.add('beat')}
