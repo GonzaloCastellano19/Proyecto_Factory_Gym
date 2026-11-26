@@ -711,8 +711,7 @@ var pre=$('pre'), preDone=false, auto=0, autoTarget=0;
 /* ===== cursor ===== */
 var cur=$('cur'), curT=$('curT'), cx=-100, cy=-100;
 if(FINE&&!RM){D.documentElement.classList.add('has-cursor');
-  D.addEventListener('mouseover',function(e){var el=e.target.closest&&e.target.closest('[data-cur],a,button');
-    if(el){var t=el.getAttribute('data-cur');if(t){curT.textContent=t;cur.classList.add('big')}else cur.classList.remove('big')}else cur.classList.remove('big')});}
+}
 addEventListener('mousemove',function(e){mouse.x=e.clientX;mouse.y=e.clientY;mouse.on=true});
 D.addEventListener('mouseleave',function(){mouse.on=false;mouse.x=mouse.y=-999});
 
