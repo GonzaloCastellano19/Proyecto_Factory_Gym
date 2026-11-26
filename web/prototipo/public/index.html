@@ -545,7 +545,7 @@ form.msg .btn{justify-self:start;margin-top:8px}
         <svg id="dial" viewBox="0 0 680 680" role="group" aria-label="Horario del día en forma de reloj de 6:00 a 22:00"></svg>
         <div class="detail" id="detail" aria-live="polite"></div>
       </div>
-      <p class="note">Prototipo con horarios y plazas de ejemplo. En la versión real hará falta iniciar sesión con la cuenta de socio.</p>
+      <p class="note" id="dialNote">Prototipo con horarios y plazas de ejemplo. En la versión real hará falta iniciar sesión con la cuenta de socio.</p>
     </div>
   </section>
 
@@ -651,12 +651,14 @@ form.msg .btn{justify-self:start;margin-top:8px}
         <button class="btn" id="lgGo" type="submit" data-cur="ENTRAR">Entrar</button>
       </form>
       <button class="btn line" id="lgDemo" type="button">Entrar con cuenta de prueba</button>
-      <p class="lg-note">Acceso simulado: no se envía ni se guarda ningún dato real. Vale cualquier correo con formato válido y una contraseña de 6 o más caracteres.</p>
+      <p class="lg-note" id="lgNote">Acceso simulado: no se envía ni se guarda ningún dato real. Vale cualquier correo con formato válido y una contraseña de 6 o más caracteres.</p>
     </div>
   </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 (function(){
 'use strict';
@@ -875,6 +877,7 @@ function showSlot(swap){var s=slots.filter(function(x){return x.id===state.sel})
 $('detail').addEventListener('click',function(e){var b=e.target.closest('#bk');if(!b)return;
   var s=slots.filter(function(x){return x.id===state.sel})[0],c=CLASES[s.key],r=b.getBoundingClientRect();
   if(!s.booked&&!user){pendingId=s.id;openLogin('Inicia sesión para reservar '+c.n+' · '+DIAS[s.day]+' '+s.time+'.','in');return}
+  if(LIVE){liveToggle(s,r);return}
   if(s.booked){s.booked=false;s.taken--;toast('Reserva cancelada: '+c.n+' · '+DIAS[s.day]+' '+s.time)}
   else if(left(s)>0){s.booked=true;s.taken++;toast('Reserva confirmada: '+c.n+' · '+DIAS[s.day]+' '+s.time);burst(r.left+r.width/2,r.top,70,.7)}
   showSlot(false);var dd=$$('#dots i');if(s.booked&&dd[s.taken-1])dd[s.taken-1].classList.add('me');
@@ -974,6 +977,7 @@ lgForm.addEventListener('submit',function(e){e.preventDefault();
   if(lgMode==='up'&&name.length<2)return fail('Escribe tu nombre.',$('lgName'));
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail))return fail('Escribe un correo válido, por ejemplo nombre@correo.es.',$('lgMail'));
   if(pass.length<6)return fail('La contraseña debe tener al menos 6 caracteres.',$('lgPass'));
+  if(LIVE){sbAuth(lgMode,name,mail,pass);return}
   var go=$('lgGo'),old=go.textContent;go.disabled=true;go.textContent=lgMode==='up'?'Creando cuenta…':'Entrando…';
   setTimeout(function(){
     user={name:lgMode==='up'?name:nameFromMail(mail),mail:mail};saveUser($('lgRem').checked);paintChip();
@@ -997,9 +1001,9 @@ function paintAcct(){var mine=slots.filter(function(s){return s.booked});
 chip.addEventListener('click',function(){if(!user){openLogin('','in');return}
   var o=!acct.classList.contains('open');if(o)paintAcct();acct.classList.toggle('open',o);chip.setAttribute('aria-expanded',o)});
 acct.addEventListener('click',function(e){
-  var c=e.target.closest('button[data-c]');if(c){var s=slots.filter(function(x){return x.id===c.dataset.c})[0];if(s){s.booked=false;s.taken--;toast('Reserva cancelada: '+CLASES[s.key].n+' · '+DIAS[s.day]+' '+s.time);paintAcct();renderDial(false)}return}
-  if(e.target.closest('#logout')){slots.forEach(function(s){if(s.booked){s.booked=false;s.taken--}});user=null;clearUser();paintChip();closeAcct();renderDial(false);toast('Sesión cerrada')}});
-D.addEventListener('click',function(e){if(acct.classList.contains('open')&&!e.target.closest('#acct')&&!e.target.closest('#userChip'))closeAcct()});
+  var c=e.target.closest('button[data-c]');if(c){if(LIVE){liveCancel(c.dataset.c);return}var s=slots.filter(function(x){return x.id===c.dataset.c})[0];if(s){s.booked=false;s.taken--;toast('Reserva cancelada: '+CLASES[s.key].n+' · '+DIAS[s.day]+' '+s.time);paintAcct();renderDial(false)}return}
+  if(e.target.closest('#logout')){if(LIVE){sb.auth.signOut().then(function(){closeAcct();toast('Sesión cerrada')});return}slots.forEach(function(s){if(s.booked){s.booked=false;s.taken--}});user=null;clearUser();paintChip();closeAcct();renderDial(false);toast('Sesión cerrada')}});
+D.addEventListener('click',function(e){if(acct.classList.contains('open')&&e.target.isConnected&&!e.target.closest('#acct')&&!e.target.closest('#userChip'))closeAcct()});
 loadUser();paintChip();
 
 /* ===== menú ===== */
@@ -1028,7 +1032,87 @@ function frame(now){var dt=Math.min(.05,(now-last)/1000);last=now;
   requestAnimationFrame(frame)}
 function onResize(){W=innerWidth;H=innerHeight;fitAll();sizeConf();sizeChalk();sizeDrum();tapes.forEach(function(o){o.w=0})}
 addEventListener('resize',onResize);
-onResize();if(D.fonts&&D.fonts.ready)D.fonts.ready.then(fitAll);renderDays();renderDial(true);showScr(0);requestAnimationFrame(frame);
+/* ===== Supabase (opcional) =====
+   Si config.js trae la URL y la clave anon, la web usa datos y sesiones reales.
+   Si no, sigue funcionando en modo simulado, como antes. */
+var CFG=window.SF_CONFIG||{}, sb=null, LIVE=false, lastSig='';
+try{if(CFG.supabaseUrl&&CFG.supabaseAnonKey&&window.supabase&&window.supabase.createClient){
+  sb=window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true}});LIVE=true}}catch(e){sb=null;LIVE=false}
+function dbErr(e){var m=(e&&e.message)||'';
+  if(/session_full/.test(m))return 'La clase se acaba de llenar. Elige otra.';
+  if(/already_booked/.test(m))return 'Ya tienes plaza en esta clase.';
+  if(/not_authenticated|JWT/.test(m))return 'Inicia sesión para reservar.';
+  return 'No se ha podido completar la acción. Inténtalo de nuevo.'}
+function authErr(e){var m=((e&&e.message)||'').toLowerCase();
+  if(m.indexOf('invalid login')>-1)return 'Correo o contraseña incorrectos.';
+  if(m.indexOf('already registered')>-1||m.indexOf('already been registered')>-1)return 'Ese correo ya tiene cuenta. Prueba a entrar.';
+  if(m.indexOf('not confirmed')>-1)return 'Confirma tu correo antes de entrar: te hemos enviado un enlace.';
+  if(m.indexOf('rate limit')>-1)return 'Demasiados intentos. Espera un momento.';
+  if(m.indexOf('password')>-1)return 'La contraseña no cumple los requisitos.';
+  return 'No se ha podido acceder. Inténtalo de nuevo.'}
+function setUserFrom(session){
+  if(session&&session.user){var u=session.user,md=u.user_metadata||{};user={name:md.full_name||nameFromMail(u.email||''),mail:u.email||''}}else user=null;
+  paintChip()}
+async function loadSlots(){
+  var r=await sb.from('sessions_with_taken').select('*').order('weekday').order('start_time');
+  if(r.error)throw r.error;
+  var mine={};
+  if(user){var b=await sb.from('bookings').select('session_id');if(!b.error)(b.data||[]).forEach(function(x){mine[x.session_id]=1})}
+  var list=[];
+  (r.data||[]).forEach(function(x){if(!CLASES[x.class_id])return;
+    list.push({id:x.id,day:x.weekday,time:String(x.start_time).slice(0,5),key:x.class_id,cap:x.capacity,taken:Math.min(x.taken,x.capacity),booked:!!mine[x.id]})});
+  slots.length=0;list.forEach(function(x){slots.push(x)})}
+function sig(){return slots.map(function(s){return s.id+':'+s.taken+':'+(s.booked?1:0)}).join('|')}
+async function refreshLive(force){
+  try{await loadSlots()}catch(e){return}
+  var g=sig();if(!force&&g===lastSig)return;lastSig=g;
+  if(state.sel&&!slots.some(function(s){return s.id===state.sel}))state.sel=null;
+  renderDial(false);if(acct.classList.contains('open')&&user)paintAcct()}
+async function liveToggle(s,r){
+  var c=CLASES[s.key],was=s.booked;
+  try{
+    var res=was?await sb.rpc('cancel_booking',{p_session:s.id}):await sb.rpc('book_session',{p_session:s.id});
+    if(res.error)throw res.error;
+    toast((was?'Reserva cancelada: ':'Reserva confirmada: ')+c.n+' · '+DIAS[s.day]+' '+s.time);
+    if(!was&&r)burst(r.left+r.width/2,r.top,70,.7)
+  }catch(e){toast(dbErr(e))}
+  await refreshLive(true);
+  var cur2=slots.filter(function(x){return x.id===s.id})[0],dd=$$('#dots i');
+  if(cur2&&cur2.booked&&dd[cur2.taken-1])dd[cur2.taken-1].classList.add('me')}
+async function liveCancel(id){
+  var s=slots.filter(function(x){return x.id===id})[0];
+  try{var res=await sb.rpc('cancel_booking',{p_session:id});if(res.error)throw res.error;
+    if(s)toast('Reserva cancelada: '+CLASES[s.key].n+' · '+DIAS[s.day]+' '+s.time)}catch(e){toast(dbErr(e))}
+  await refreshLive(true)}
+async function sbAuth(mode,name,mail,pass){
+  var go=$('lgGo'),old=go.textContent;go.disabled=true;go.textContent=mode==='up'?'Creando cuenta…':'Entrando…';
+  try{
+    var r=mode==='up'?await sb.auth.signUp({email:mail,password:pass,options:{data:{full_name:name}}}):await sb.auth.signInWithPassword({email:mail,password:pass});
+    if(r.error)throw r.error;
+    go.disabled=false;go.textContent=old;
+    if(mode==='up'&&!r.data.session){setMode('in');lgErr.textContent='Cuenta creada. Revisa tu correo, confirma el enlace y después entra.';return}
+    setUserFrom(r.data.session);lgForm.reset();$('lgPass').type='password';$('lgEye').textContent='Ver';
+    var pend=pendingId;closeLogin(true);pendingId=null;
+    toast((mode==='up'?'Cuenta creada · Bienvenido, ':'Sesión iniciada · Hola, ')+user.name);burst(W-90,60,50,.6);
+    await refreshLive(true);
+    if(pend){var s=slots.filter(function(x){return x.id===pend})[0];if(s){state.sel=s.id;state.day=s.day;renderDays();renderDial(false);
+      if(!s.booked&&left(s)>0){var b=$('bk');await liveToggle(s,b?b.getBoundingClientRect():null)}}}
+  }catch(e){go.disabled=false;go.textContent=old;fail(authErr(e),null)}}
+async function initLive(){
+  if(!LIVE)return;
+  user=null;clearUser();paintChip();
+  $('lgDemo').hidden=true;var chk=D.querySelector('.chk');if(chk)chk.style.display='none';
+  $('lgNote').textContent='Tu cuenta se guarda de forma segura en Supabase. Usa un correo real: puede pedirte confirmarlo.';
+  $('dialNote').textContent='Plazas en directo: se actualizan cuando cualquier socio reserva o cancela.';
+  try{var sess=await sb.auth.getSession();setUserFrom(sess.data&&sess.data.session)}catch(e){}
+  try{await loadSlots();state.sel=null;lastSig=sig();renderDays();renderDial(true)}
+  catch(e){LIVE=false;toast('No se pudo conectar con Supabase. Se muestran datos de ejemplo.');return}
+  sb.auth.onAuthStateChange(function(ev){setTimeout(async function(){
+    try{var s2=await sb.auth.getSession();setUserFrom(s2.data&&s2.data.session)}catch(e){}
+    refreshLive(true)},0)});
+  setInterval(function(){if(!D.hidden&&LIVE)refreshLive(false)},20000)}
+
+onResize();if(D.fonts&&D.fonts.ready)D.fonts.ready.then(fitAll);renderDays();renderDial(true);showScr(0);requestAnimationFrame(frame);initLive();
 })();
 </script>
 
